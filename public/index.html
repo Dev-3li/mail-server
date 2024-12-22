@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>خادم البريد الإلكتروني</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .response {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        .error {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>خادم البريد الإلكتروني</h1>
+        
+        <h2>إنشاء حساب جديد</h2>
+        <form id="createAccountForm">
+            <div class="form-group">
+                <label>البريد الإلكتروني:</label>
+                <input type="email" id="email" required>
+            </div>
+            <div class="form-group">
+                <label>كلمة المرور:</label>
+                <input type="password" id="password" required>
+            </div>
+            <div class="form-group">
+                <label>الاسم الكامل:</label>
+                <input type="text" id="fullName" required>
+            </div>
+            <button type="submit">إنشاء حساب</button>
+        </form>
+
+        <h2>إرسال بريد</h2>
+        <form id="sendEmailForm">
+            <div class="form-group">
+                <label>إلى:</label>
+                <input type="email" id="to" required>
+            </div>
+            <div class="form-group">
+                <label>الموضوع:</label>
+                <input type="text" id="subject" required>
+            </div>
+            <div class="form-group">
+                <label>الرسالة:</label>
+                <textarea id="body" rows="4" required></textarea>
+            </div>
+            <button type="submit">إرسال</button>
+        </form>
+
+        <div id="response" class="response"></div>
+    </div>
+
+    <script>
+        const API_URL = 'https://web-production-0f627.up.railway.app';
+
+        document.getElementById('createAccountForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                const response = await fetch(`${API_URL}/api/accounts`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: document.getElementById('email').value,
+                        password: document.getElementById('password').value,
+                        fullName: document.getElementById('fullName').value
+                    })
+                });
+                
+                const data = await response.json();
+                showResponse(data.message, response.ok);
+            } catch (error) {
+                showResponse('حدث خطأ في إنشاء الحساب', false);
+            }
+        });
+
+        document.getElementById('sendEmailForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                const response = await fetch(`${API_URL}/api/send`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        to: document.getElementById('to').value,
+                        subject: document.getElementById('subject').value,
+                        text: document.getElementById('body').value
+                    })
+                });
+                
+                const data = await response.json();
+                showResponse(data.message, response.ok);
+            } catch (error) {
+                showResponse('حدث خطأ في إرسال البريد', false);
+            }
+        });
+
+        function showResponse(message, isSuccess) {
+            const responseDiv = document.getElementById('response');
+            responseDiv.textContent = message;
+            responseDiv.className = `response ${isSuccess ? 'success' : 'error'}`;
+        }
+    </script>
+</body>
+</html>

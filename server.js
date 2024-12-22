@@ -25,6 +25,7 @@ mongoose.connect(MONGODB_URI, {
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.static('public'));
 
 // إعداد خادم SMTP
 const smtpServer = new SMTPServer({

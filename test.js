@@ -1,7 +1,7 @@
 const axios = require('axios');
 
-// استبدل هذا بعنوان التطبيق الخاص بك على Railway
-const API_URL = 'YOUR_RAILWAY_APP_URL';
+// عنوان التطبيق على Railway
+const API_URL = 'https://web-production-0f627.up.railway.app';
 
 async function testMailServer() {
   try {
