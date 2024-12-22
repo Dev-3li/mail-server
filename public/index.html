@@ -61,6 +61,11 @@
             background-color: #f2dede;
             color: #a94442;
         }
+        .email-item {
+            margin-bottom: 20px;
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
     </style>
 </head>
 <body>
@@ -85,7 +90,7 @@
         </form>
 
         <h2>إرسال بريد</h2>
-        <form id="sendEmailForm">
+        <form id="sendEmailForm" style="display: none;">
             <div class="form-group">
                 <label>إلى:</label>
                 <input type="email" id="to" required>
@@ -98,14 +103,30 @@
                 <label>الرسالة:</label>
                 <textarea id="body" rows="4" required></textarea>
             </div>
+            <div class="form-group">
+                <label>المرفقات:</label>
+                <input type="file" id="attachments" multiple>
+            </div>
             <button type="submit">إرسال</button>
         </form>
+
+        <h2>صندوق الوارد</h2>
+        <div id="inbox"></div>
 
         <div id="response" class="response"></div>
     </div>
 
     <script>
         const API_URL = 'https://web-production-0f627.up.railway.app';
+        let currentUser = null;
+
+        // التحقق من وجود مستخدم مسجل
+        const token = localStorage.getItem('token');
+        if (token) {
+            document.getElementById('sendEmailForm').style.display = 'block';
+        } else {
+            document.getElementById('sendEmailForm').style.display = 'none';
+        }
 
         document.getElementById('createAccountForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -123,6 +144,11 @@
                 });
                 
                 const data = await response.json();
+                if (response.ok) {
+                    localStorage.setItem('token', data.token);
+                    currentUser = data.user;
+                    document.getElementById('sendEmailForm').style.display = 'block';
+                }
                 showResponse(data.message, response.ok);
             } catch (error) {
                 showResponse('حدث خطأ في إنشاء الحساب', false);
@@ -132,24 +158,69 @@
         document.getElementById('sendEmailForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             try {
+                const formData = new FormData();
+                formData.append('to', document.getElementById('to').value);
+                formData.append('subject', document.getElementById('subject').value);
+                formData.append('text', document.getElementById('body').value);
+
+                const attachments = document.getElementById('attachments').files;
+                for (let i = 0; i < attachments.length; i++) {
+                    formData.append('attachments', attachments[i]);
+                }
+
                 const response = await fetch(`${API_URL}/api/send`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
                     },
-                    body: JSON.stringify({
-                        to: document.getElementById('to').value,
-                        subject: document.getElementById('subject').value,
-                        text: document.getElementById('body').value
-                    })
+                    body: formData
                 });
                 
                 const data = await response.json();
                 showResponse(data.message, response.ok);
+
+                if (response.ok) {
+                    document.getElementById('sendEmailForm').reset();
+                }
             } catch (error) {
                 showResponse('حدث خطأ في إرسال البريد', false);
             }
         });
+
+        // إضافة صندوق الوارد
+        async function loadInbox() {
+            if (!currentUser) return;
+
+            try {
+                const response = await fetch(`${API_URL}/api/emails/${currentUser.email}`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                
+                const emails = await response.json();
+                const inboxDiv = document.getElementById('inbox');
+                inboxDiv.innerHTML = '';
+
+                emails.forEach(email => {
+                    const emailDiv = document.createElement('div');
+                    emailDiv.className = 'email-item';
+                    emailDiv.innerHTML = `
+                        <h3>${email.subject}</h3>
+                        <p><strong>من:</strong> ${email.from}</p>
+                        <p>${email.text}</p>
+                        ${email.attachments?.length ? '<p><strong>مرفقات:</strong> ' + email.attachments.length + '</p>' : ''}
+                        <hr>
+                    `;
+                    inboxDiv.appendChild(emailDiv);
+                });
+            } catch (error) {
+                console.error('خطأ في تحميل البريد الوارد:', error);
+            }
+        }
+
+        // تحديث الصندوق الوارد كل دقيقة
+        setInterval(loadInbox, 60000);
 
         function showResponse(message, isSuccess) {
             const responseDiv = document.getElementById('response');

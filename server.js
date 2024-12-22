@@ -3,6 +3,9 @@ const { simpleParser } = require('mailparser');
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const multer = require('multer');
+const jwt = require('jsonwebtoken');
+const path = require('path');
 const Email = require('./models/Email');
 const MailAccount = require('./models/MailAccount');
 
@@ -21,11 +24,124 @@ mongoose.connect(MONGODB_URI, {
   console.error('خطأ في الاتصال بقاعدة البيانات:', err);
 });
 
+// إعداد multer للمرفقات
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/')
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + '-' + file.originalname)
+  }
+});
+const upload = multer({ storage: storage });
+
+// إنشاء مجلد للمرفقات
+const fs = require('fs');
+if (!fs.existsSync('uploads')) {
+  fs.mkdirSync('uploads');
+}
+
 // إعداد خادم Express للواجهة البرمجية
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
+app.use('/uploads', express.static('uploads'));
+
+// التحقق من التوكن
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ message: 'غير مصرح' });
+  }
+
+  jwt.verify(token, 'your-secret-key', (err, user) => {
+    if (err) {
+      return res.status(403).json({ message: 'توكن غير صالح' });
+    }
+    req.user = user;
+    next();
+  });
+}
+
+// إنشاء حساب جديد
+app.post('/api/accounts', async (req, res) => {
+  try {
+    const { email, password, fullName } = req.body;
+    
+    // التحقق من عدم وجود الحساب مسبقاً
+    const existingAccount = await MailAccount.findOne({ email });
+    if (existingAccount) {
+      return res.status(400).json({ message: 'البريد الإلكتروني مستخدم بالفعل' });
+    }
+
+    const account = new MailAccount({
+      email,
+      password, // سيتم تشفيره تلقائياً في النموذج
+      fullName
+    });
+
+    await account.save();
+
+    // إنشاء توكن
+    const token = jwt.sign({ email: account.email }, 'your-secret-key');
+
+    res.status(201).json({ 
+      message: 'تم إنشاء الحساب بنجاح',
+      token,
+      user: { email: account.email, fullName: account.fullName }
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'حدث خطأ في إنشاء الحساب' });
+  }
+});
+
+// إرسال بريد
+app.post('/api/send', authenticateToken, upload.array('attachments'), async (req, res) => {
+  try {
+    const { to, subject, text } = req.body;
+    const attachments = req.files?.map(file => ({
+      filename: file.originalname,
+      path: file.path
+    }));
+
+    // حفظ البريد في قاعدة البيانات
+    const email = new Email({
+      from: req.user.email,
+      to,
+      subject,
+      text,
+      attachments: attachments?.map(att => ({
+        filename: att.filename,
+        path: att.path
+      }))
+    });
+
+    await email.save();
+
+    res.json({ message: 'تم إرسال البريد بنجاح' });
+  } catch (error) {
+    res.status(500).json({ message: 'حدث خطأ في إرسال البريد' });
+  }
+});
+
+// جلب البريد الوارد
+app.get('/api/emails/:email', authenticateToken, async (req, res) => {
+  try {
+    const emails = await Email.find({
+      $or: [
+        { to: req.params.email },
+        { from: req.params.email }
+      ]
+    }).sort({ createdAt: -1 });
+
+    res.json(emails);
+  } catch (error) {
+    res.status(500).json({ message: 'حدث خطأ في جلب البريد' });
+  }
+});
 
 // إعداد خادم SMTP
 const smtpServer = new SMTPServer({
@@ -76,61 +192,6 @@ const smtpServer = new SMTPServer({
       console.error('خطأ في معالجة البريد:', error);
       callback(error);
     }
-  }
-});
-
-// مسارات API
-
-// إنشاء حساب بريد جديد
-app.post('/api/accounts', async (req, res) => {
-  try {
-    const { email, password, fullName } = req.body;
-    
-    const account = new MailAccount({
-      email,
-      password,
-      fullName
-    });
-    
-    await account.save();
-    res.status(201).json({ message: 'تم إنشاء الحساب بنجاح' });
-  } catch (error) {
-    res.status(500).json({ error: 'حدث خطأ في إنشاء الحساب' });
-  }
-});
-
-// جلب البريد الوارد
-app.get('/api/emails/:email', async (req, res) => {
-  try {
-    const emails = await Email.find({
-      to: req.params.email,
-      mailbox: 'inbox'
-    }).sort({ receivedDate: -1 });
-    
-    res.json(emails);
-  } catch (error) {
-    res.status(500).json({ error: 'حدث خطأ في جلب البريد' });
-  }
-});
-
-// إرسال بريد جديد
-app.post('/api/send', async (req, res) => {
-  try {
-    const { from, to, subject, text, html } = req.body;
-    
-    const email = new Email({
-      from,
-      to: Array.isArray(to) ? to : [to],
-      subject,
-      text,
-      html,
-      mailbox: 'sent'
-    });
-    
-    await email.save();
-    res.json({ message: 'تم إرسال البريد بنجاح' });
-  } catch (error) {
-    res.status(500).json({ error: 'حدث خطأ في إرسال البريد' });
   }
 });
 
