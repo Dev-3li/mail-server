@@ -13,6 +13,16 @@ const MailAccount = require('./models/MailAccount');
 const PORT = process.env.PORT || 3002;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/mailserver';
 const SMTP_PORT = process.env.SMTP_PORT || 2525;
+const DOMAIN = process.env.DOMAIN || 'web-production-0f627.up.railway.app';
+
+// إعدادات النطاق
+const DOMAIN = process.env.DOMAIN || 'web-production-0f627.up.railway.app';
+
+// التحقق من صحة عنوان البريد
+function validateEmail(email) {
+    const domain = email.split('@')[1];
+    return domain === DOMAIN;
+}
 
 // اتصال بقاعدة البيانات
 mongoose.connect(MONGODB_URI, {
@@ -70,6 +80,13 @@ function authenticateToken(req, res, next) {
 app.post('/api/accounts', async (req, res) => {
   try {
     const { email, password, fullName } = req.body;
+    
+    // التحقق من النطاق
+    if (!validateEmail(email)) {
+      return res.status(400).json({ 
+        message: `عنوان البريد يجب أن ينتهي بـ @${DOMAIN}` 
+      });
+    }
     
     // التحقق من عدم وجود الحساب مسبقاً
     const existingAccount = await MailAccount.findOne({ email });

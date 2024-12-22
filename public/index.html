@@ -66,6 +66,15 @@
             padding: 10px;
             border-bottom: 1px solid #ddd;
         }
+        .email-input {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .domain {
+            color: #666;
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body>
@@ -75,8 +84,11 @@
         <h2>إنشاء حساب جديد</h2>
         <form id="createAccountForm">
             <div class="form-group">
-                <label>البريد الإلكتروني:</label>
-                <input type="email" id="email" required>
+                <label>اسم المستخدم:</label>
+                <div class="email-input">
+                    <input type="text" id="username" required>
+                    <span class="domain">@web-production-0f627.up.railway.app</span>
+                </div>
             </div>
             <div class="form-group">
                 <label>كلمة المرور:</label>
@@ -118,6 +130,7 @@
 
     <script>
         const API_URL = 'https://web-production-0f627.up.railway.app';
+        const DOMAIN = 'web-production-0f627.up.railway.app';
         let currentUser = null;
 
         // التحقق من وجود مستخدم مسجل
@@ -131,13 +144,16 @@
         document.getElementById('createAccountForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             try {
+                const username = document.getElementById('username').value;
+                const email = `${username}@${DOMAIN}`;
+                
                 const response = await fetch(`${API_URL}/api/accounts`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        email: document.getElementById('email').value,
+                        email,
                         password: document.getElementById('password').value,
                         fullName: document.getElementById('fullName').value
                     })
