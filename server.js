@@ -11,9 +11,9 @@ const Email = require('./models/Email');
 const MailAccount = require('./models/MailAccount');
 
 // إعدادات البيئة
-const PORT = process.env.PORT || 3002;
+const PORT = parseInt(process.env.PORT || '3002', 10);
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/mailserver';
-const SMTP_PORT = process.env.SMTP_PORT || 2525;
+const SMTP_PORT = parseInt(process.env.SMTP_PORT || '2525', 10);
 const DOMAIN = process.env.DOMAIN || 'web-production-0f627.up.railway.app';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
