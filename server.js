@@ -1,11 +1,12 @@
-const { SMTPServer } = require('smtp-server');
-const { simpleParser } = require('mailparser');
+require('dotenv').config();
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
 const multer = require('multer');
 const jwt = require('jsonwebtoken');
 const path = require('path');
+const mongoose = require('mongoose');
+const { SMTPServer } = require('smtp-server');
+const { simpleParser } = require('mailparser');
 const Email = require('./models/Email');
 const MailAccount = require('./models/MailAccount');
 
@@ -14,9 +15,7 @@ const PORT = process.env.PORT || 3002;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/mailserver';
 const SMTP_PORT = process.env.SMTP_PORT || 2525;
 const DOMAIN = process.env.DOMAIN || 'web-production-0f627.up.railway.app';
-
-// إعدادات النطاق
-const DOMAIN = process.env.DOMAIN || 'web-production-0f627.up.railway.app';
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // التحقق من صحة عنوان البريد
 function validateEmail(email) {
@@ -67,7 +66,7 @@ function authenticateToken(req, res, next) {
     return res.status(401).json({ message: 'غير مصرح' });
   }
 
-  jwt.verify(token, 'your-secret-key', (err, user) => {
+  jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
       return res.status(403).json({ message: 'توكن غير صالح' });
     }
@@ -103,7 +102,7 @@ app.post('/api/accounts', async (req, res) => {
     await account.save();
 
     // إنشاء توكن
-    const token = jwt.sign({ email: account.email }, 'your-secret-key');
+    const token = jwt.sign({ email: account.email }, JWT_SECRET);
 
     res.status(201).json({ 
       message: 'تم إنشاء الحساب بنجاح',
